@@ -4,7 +4,8 @@ using System;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
+using Newtonsoft.Json;
+using Program.Models;
 
 namespace Program
 {
@@ -31,10 +32,20 @@ namespace Program
             var consumer = new EventingBasicConsumer(rabbitMqChannel);
             consumer.Received += (model, ea) =>
             {
-
                 var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
-                Console.WriteLine(" Notice : " + message);
+                Request request = JsonConvert.DeserializeObject<Request>(Encoding.UTF8.GetString(body));
+
+                using (var context = new MQContext())
+                {
+                    var sms = new RecievedSms
+                    {
+                        State = request.Status,
+                    };
+
+                    context.RecievedSms.Add(sms);
+                    context.SaveChanges();
+                }
+                Console.WriteLine("Record has been made in messages" + request.Status);
                 rabbitMqChannel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
                 Thread.Sleep(1000);
             };
